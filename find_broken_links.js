@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const recursive = require("recursive-readdir");
+const frontMatter = require("front-matter");
 
 const baseUrl = "https://dev.fingerprint.com"; // Base URL of the documentation, no trailing slash
 const docFilesFolder = "./exported/v3"; // Local folder with markdown files exported from ReadMe you want to check
@@ -8,59 +9,60 @@ const outputFile = "broken_links_report.json"; // File name to write the broken 
 
 // Main function: Get all the broken links in our dcumentation
 async function getBrokenLinks() {
-  try {
-    const files = await readMarkdownFiles(docFilesFolder);
-    let allPageHeadings = {};
-    let allLinks = {};
+  const files = await readMarkdownFiles(docFilesFolder);
+  let allPageHeadings = {};
+  let allLinks = {};
 
-    // Extract headings and links from each file
-    for (const file of files) {
-      const content = await readFileContent(file);
-      const fileName = path.basename(file, path.extname(file));
-      const headings = extractHeadings(content);
-      const links = extractLinks(content);
+  // Extract headings and links from each file
+  for (const file of files) {
+    const content = await readFileContent(file);
+    const fileName = path.basename(file, path.extname(file));
+    const { attributes, body } = content;
 
-      allPageHeadings[fileName] = headings;
-      allLinks[fileName] = links;
-    }
+    // Skip hidden files
+    if (attributes.hidden) continue;
 
-    // Check if links are valid
-    const brokenLinks = {};
-    let brokenLinksCount = 0;
-    for (const page in allLinks) {
-      for (const link of allLinks[page]) {
-        const validation = validateLink(link, allPageHeadings);
-        if (validation.missingPage || validation.missingAnchor) {
-          if (!brokenLinks[page]) {
-            brokenLinks[page] = [];
-          }
-          let problem = validation.missingPage
-            ? "Missing page"
-            : "Missing anchor";
-          brokenLinks[page].push({ problem, ...link });
-          brokenLinksCount++;
+    const headings = extractHeadings(body);
+    const links = extractLinks(body);
+
+    allPageHeadings[fileName] = headings;
+    allLinks[fileName] = links;
+  }
+
+  // Check if links are valid
+  const brokenLinks = {};
+  let brokenLinksCount = 0;
+  for (const page in allLinks) {
+    for (const link of allLinks[page]) {
+      const validation = validateLink(link, allPageHeadings);
+      if (validation.missingPage || validation.missingAnchor) {
+        if (!brokenLinks[page]) {
+          brokenLinks[page] = [];
         }
+        let problem = validation.missingPage
+          ? "Missing page"
+          : "Missing anchor";
+        brokenLinks[page].push({ problem, ...link });
+        brokenLinksCount++;
       }
     }
+  }
 
-    // If there are broken links, write them to a file
-    if (brokenLinksCount > 0) {
-      fs.writeFile(outputFile, JSON.stringify(brokenLinks, null, 2), (err) => {
-        if (err) {
-          console.error(
-            `${brokenLinksCount} broken links found but error writing broken links report:`,
-            err
-          );
-        } else {
-          console.log(`${brokenLinksCount} broken links found!`);
-          console.log(`Broken links written to ${outputFile}`);
-        }
-      });
-    } else {
-      console.log("No broken links found.");
-    }
-  } catch (error) {
-    console.error("Error reading files:", error);
+  // If there are broken links, write them to a file
+  if (brokenLinksCount > 0) {
+    fs.writeFile(outputFile, JSON.stringify(brokenLinks, null, 2), (err) => {
+      if (err) {
+        console.error(
+          `${brokenLinksCount} broken links found but error writing broken links report:`,
+          err
+        );
+      } else {
+        console.log(`${brokenLinksCount} broken links found!`);
+        console.log(`Broken links written to ${outputFile}`);
+      }
+    });
+  } else {
+    console.log("No broken links found.");
   }
 }
 
@@ -84,7 +86,8 @@ async function readFileContent(filePath) {
       if (err) {
         reject(err);
       } else {
-        resolve(data);
+        const content = frontMatter(data);
+        resolve(content);
       }
     });
   });

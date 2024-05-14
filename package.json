@@ -9,6 +9,7 @@
   "keywords": [],
   "author": "Keshia Rose",
   "dependencies": {
+    "front-matter": "^4.0.2",
     "recursive-readdir": "^2.2.3"
   }
 }
