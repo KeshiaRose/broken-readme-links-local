@@ -1,0 +1,14 @@
+{
+  "name": "broken-readme-links-local",
+  "version": "1.0.0",
+  "description": "A quick locally run script to find broken links in your ReadMe documentation.",
+  "main": "find_broken_links.js",
+  "scripts": {
+    "start": "node find_broken_links.js"
+  },
+  "keywords": [],
+  "author": "Keshia Rose",
+  "dependencies": {
+    "recursive-readdir": "^2.2.3"
+  }
+}
