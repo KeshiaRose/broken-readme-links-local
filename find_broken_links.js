@@ -19,15 +19,18 @@ async function getBrokenLinks() {
     const fileName = path.basename(file, path.extname(file));
     const { attributes, body } = content;
 
-    // Skip hidden files
-    if (attributes.hidden) continue;
-
     const headings = extractHeadings(body);
-    const links = extractLinks(body);
-
     allPageHeadings[fileName] = headings;
+
+    // Skip links in hidden files (Keep this?) and external link pages
+    if (attributes.hidden || (attributes.type && attributes.type == "link"))
+      continue;
+    const links = extractLinks(body);
     allLinks[fileName] = links;
   }
+  appendAnchorNumbers(allPageHeadings);
+
+  // fs.writeFileSync("pages.json", JSON.stringify(allPageHeadings, null, 2));
 
   // Check if links are valid
   const brokenLinks = {};
@@ -49,21 +52,19 @@ async function getBrokenLinks() {
   }
 
   // If there are broken links, write them to a file
-  if (brokenLinksCount > 0) {
-    fs.writeFile(outputFile, JSON.stringify(brokenLinks, null, 2), (err) => {
-      if (err) {
-        console.error(
-          `${brokenLinksCount} broken links found but error writing broken links report:`,
-          err
-        );
-      } else {
-        console.log(`${brokenLinksCount} broken links found!`);
-        console.log(`Broken links written to ${outputFile}`);
-      }
-    });
-  } else {
-    console.log("No broken links found.");
-  }
+  fs.writeFile(outputFile, JSON.stringify(brokenLinks, null, 2), (err) => {
+    if (err) {
+      console.error(
+        `${brokenLinksCount} broken links found but error writing broken links report:`,
+        err
+      );
+    } else {
+      console.log(
+        `${brokenLinksCount > 0 ? brokenLinksCount : "No"} broken links found!`
+      );
+      console.log(`Broken links written to ${outputFile}`);
+    }
+  });
 }
 
 // Get all markdown files in a directory
@@ -112,6 +113,22 @@ function extractHeadings(content) {
     });
   }
   return headings;
+}
+
+// Append numbers to anchor if there are multiple headings with the same anchor
+function appendAnchorNumbers(pages) {
+  for (const page in pages) {
+    const anchorCount = {};
+    pages[page].forEach((heading, index) => {
+      const anchor = heading.anchor;
+      if (anchorCount[anchor]) {
+        pages[page][index].anchor = `${anchor}-${anchorCount[anchor]}`;
+        anchorCount[anchor]++;
+      } else {
+        anchorCount[anchor] = 1;
+      }
+    });
+  }
 }
 
 // Extract links from markdown content
