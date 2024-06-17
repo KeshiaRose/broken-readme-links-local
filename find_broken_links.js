@@ -7,7 +7,7 @@ const baseUrl = "https://dev.fingerprint.com"; // Base URL of the documentation,
 const docFilesFolder = "./exported/v3"; // Local folder with markdown files exported from ReadMe you want to check
 const outputFile = "broken_links_report.json"; // File name to write the broken links report to
 
-// Main function: Get all the broken links in our dcumentation
+// Main function: Get all the broken links in your dcumentation
 async function getBrokenLinks() {
   const files = await readMarkdownFiles(docFilesFolder);
   let allPageHeadings = {};
@@ -25,7 +25,7 @@ async function getBrokenLinks() {
     // Skip links in hidden files (Keep this?) and external link pages
     if (attributes.hidden || (attributes.type && attributes.type == "link"))
       continue;
-    const links = extractLinks(body);
+    const links = extractLinks(fileName, body);
     allLinks[fileName] = links;
   }
   appendAnchorNumbers(allPageHeadings);
@@ -62,7 +62,7 @@ async function getBrokenLinks() {
       console.log(
         `${brokenLinksCount > 0 ? brokenLinksCount : "No"} broken links found!`
       );
-      console.log(`Broken links written to ${outputFile}`);
+      console.log(`${outputFile} updated with broken links report.`);
     }
   });
 }
@@ -103,7 +103,7 @@ function extractHeadings(content) {
     const text = match[2];
     const anchor = text
       .toLowerCase()
-      .replace(/\s+/g, "-")
+      .replace(/\s/g, "-")
       .replace(/[^a-z0-9-]/g, "");
 
     headings.push({
@@ -132,13 +132,14 @@ function appendAnchorNumbers(pages) {
 }
 
 // Extract links from markdown content
-function extractLinks(content) {
+function extractLinks(page, content) {
   const escapedBaseUrl = baseUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const urlLinkRegex = new RegExp(
     `\\[([^\\]]+)\\]\\(${escapedBaseUrl}/\\w+/([\\w-]+)#([\\w-]+)\\)`,
     "g"
   );
   const readmeLinkRegex = /\[([^\]]+)\]\(doc:([\w-]+)#([\w-]+)\)/g;
+  const anchorLinkRegex = /\[([^\]]+)\]\(#([\w-]+)\)/g;
   let match;
   const links = [];
 
@@ -159,6 +160,16 @@ function extractLinks(content) {
       linkText: match[1],
       pageLinkedTo: match[2],
       anchorLinkedTo: match[3],
+    });
+  }
+
+  // Extract anchor links
+  while ((match = anchorLinkRegex.exec(content)) !== null) {
+    links.push({
+      linkType: "Anchor link",
+      linkText: match[1],
+      pageLinkedTo: page,
+      anchorLinkedTo: match[2],
     });
   }
 
@@ -184,6 +195,7 @@ function validateLink(link, pages) {
   if (!anchorFound) {
     verdict.missingAnchor = true;
   }
+
   return verdict;
 }
 
